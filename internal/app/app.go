@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"ezflow/internal/projects"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 )
 
 func Run() {
@@ -22,8 +22,8 @@ func Run() {
 	}
 }
 
-func connectDB(url string) *sql.DB {
-	db, err := sql.Open("pgx", url)
+func connectDB(url string) *sqlx.DB {
+	db, err := sqlx.Open("pgx", url)
 	if err != nil {
 		log.Printf("error abriendo la bd: %v", err)
 		return nil
@@ -32,7 +32,7 @@ func connectDB(url string) *sql.DB {
 	for i := 0; i < 5; i++ {
 		if err := db.Ping(); err == nil {
 			log.Println("conectado a la base de datos")
-			updateProject(db, "01KZTN4478YXVVGSJE8TY1W2R2", "proyecto actualizado", "descripcion actualizada")
+			seveProject(db)
 			return db
 		}
 		time.Sleep(2 * time.Second)
@@ -42,12 +42,18 @@ func connectDB(url string) *sql.DB {
 	return db
 }
 
-func updateProject(db *sql.DB, id, name, description string) {
-	repo := projects.NewRepository(db)
-	p, err := repo.Update(context.Background(), id, name, description)
-	if err != nil {
-		log.Printf("error actualizando proyecto: %v", err)
-		return
+func seveProject(db *sqlx.DB) projects.Project {
+	p := &projects.Project{
+		Name:        "prueba service 2",
+		Description: "descripcion de prueba service",
+		Color:       "#FF0000",
 	}
-	log.Printf("proyecto actualizado: %v", p)
+	repo := projects.NewProjectRepository(db)
+	service := projects.NewProjectService(*repo)
+	createdProject, err := service.CreateProject(context.Background(), p)
+	if err != nil {
+		log.Printf("error guardando columna: %v", err)
+		return projects.Project{}
+	}
+	return createdProject
 }
